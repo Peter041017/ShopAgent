@@ -1,0 +1,41 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/chroma/
+data/shopagent.db
+*.db
+
+# Environment
+.env
+!.env.example
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.next/
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+
+# node
+frontend/node_modules/
+.next/

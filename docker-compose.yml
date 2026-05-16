@@ -1,0 +1,31 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: shopagent
+      POSTGRES_PASSWORD: shopagent
+      POSTGRES_DB: shopagent
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  redis_data:
+  pg_data:
+  chroma_data:
