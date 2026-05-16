@@ -22,3 +22,5 @@ class AgentState(TypedDict):
     final_response: NotRequired[str]
     # 对话上下文历史（格式化的历史消息，供生成回复使用）
     conversation_history: NotRequired[str]
+    # 安全审核拦截标记（始终由 security_node 在当前轮设置）
+    _security_blocked: NotRequired[bool]

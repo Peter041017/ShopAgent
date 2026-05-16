@@ -1,3 +1,13 @@
+/**
+ * components/ui/Input.tsx
+ * -----------------------
+ * 通用文本输入框组件（客户端组件，受控模式）。
+ *
+ * ## 交互
+ * - focus 时显示蓝色圆环 (ring-2 ring-blue-500)
+ * - disabled 时背景变灰
+ */
+
 'use client';
 
 interface InputProps {
@@ -7,7 +17,12 @@ interface InputProps {
   disabled?: boolean;
 }
 
-export default function Input({ value, onChange, placeholder, disabled }: InputProps) {
+export default function Input({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: InputProps) {
   return (
     <input
       type="text"

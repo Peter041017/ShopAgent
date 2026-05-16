@@ -1,7 +1,7 @@
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
-from src.agent.edges.routers import route_after_intent, route_after_security, route_after_tool
+from src.agent.edges.routers import route_after_intent, route_after_rag, route_after_security, route_after_tool
 from src.agent.nodes.clarification import clarification_node
 from src.agent.nodes.intent_router import intent_router_node
 from src.agent.nodes.memory_node import memory_context_node
@@ -50,7 +50,15 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    workflow.add_edge("rag_retrieval", "response_gen")
+    # RAG 之后：after_sales 还需走 tool（退换货操作），其余直接生成回复
+    workflow.add_conditional_edges(
+        "rag_retrieval",
+        route_after_rag,
+        {
+            "tool": "tool_executor",
+            "respond": "response_gen",
+        },
+    )
 
     workflow.add_conditional_edges(
         "tool_executor",

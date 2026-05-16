@@ -67,9 +67,17 @@ async def tool_executor_node(state: AgentState) -> dict:
         issue_type = str(slots.get("issue_type") or "").lower()
         order_id = slots.get("order_id")
 
-        # 退款处理：需要订单号且确认意图
-        refund_keywords = ("退款", "退货", "退钱", "refund", "return")
-        if any(k in issue_type for k in refund_keywords) or any(k in user_text for k in refund_keywords):
+        # 判断是「咨询政策」还是「申请操作」
+        policy_keywords = ("条件", "政策", "规则", "可以退吗", "怎么退", "多久", "流程")
+        is_policy_query = any(k in user_text for k in policy_keywords)
+
+        # 判断是否明确要求执行退款操作
+        action_keywords = ("我要退款", "申请退款", "帮我退", "提交退款", "refund", "return")
+        is_refund_action = any(k in user_text for k in action_keywords) or any(
+            k in issue_type for k in ("退款", "退货", "退钱")
+        )
+
+        if is_refund_action and not is_policy_query:
             if order_id:
                 if submit_refund.name in DANGEROUS_TOOLS:
                     out = await submit_refund.ainvoke(
@@ -81,14 +89,14 @@ async def tool_executor_node(state: AgentState) -> dict:
                         "needs_clarification": False,
                         "needs_human": True,
                     }
-            # 有意图但无订单号 → 问订单号
+            # 有退款意图但无订单号 → 问订单号
             return {
                 "needs_clarification": True,
                 "clarification_question": "请提供需要退款的订单号。",
                 "tool_results": [],
             }
 
-        # 默认：查询退款政策
+        # 默认：查询退款政策（涵盖政策咨询、信息查询）
         out = await query_refund_policy.ainvoke({"product_category": slots.get("category", "general")})
         tool_results.append({"name": "query_refund_policy", "content": out})
         return {"tool_results": tool_results, "needs_clarification": False}

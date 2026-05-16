@@ -381,6 +381,11 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 ## 6. 核心模块实现
 
+> **实现注意事项 (v0.1.1 更新)**：
+> 1. **RAG 中文分词**：Chroma 不可用时的回退关键词匹配已从单字切分升级为 bigram 二元组切分（`rag_node._tokenize()`），中文查询匹配精度大幅提升。
+> 2. **JSON 泄漏防护**：WebSocket 流式过滤、HTTP 响应、response_gen 节点均已加入意图 JSON 正则清洗 + 状态重置，防止 `intent_router` 的 JSON 输出泄漏到用户回复中。
+> 3. **状态防泄漏**：每次 `agent.ainvoke()` 前显式重置 `final_response` 和 `_security_blocked`，避免 `MemorySaver` 缓存的旧值残留。
+
 ### 6.1 知识库构建 (RAG)
 
 #### 6.1.1 文档加载与分块 (`src/rag/loader.py`)

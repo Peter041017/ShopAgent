@@ -46,11 +46,16 @@ async def search_products(
         lines = [
             f"搜索「{keyword}」的结果：找到 {len(products)} 件商品"
             + (f"（分类: {category}" if category else "（全部")
-            + f"，价格 {price_min}-{price_max}）。示例："
+            + f"，价格 {price_min}-{price_max}）。"
         ]
         for p in products[:5]:
-            lines.append(f"  {p.name}  ¥{p.price:.2f}  (库存 {p.stock})")
+            lines.append(f"\n【{p.name}】")
+            lines.append(f"  价格: ¥{p.price:.2f}  |  库存: {p.stock}")
+            if p.description:
+                lines.append(f"  简介: {p.description}")
+            if p.specs:
+                lines.append(f"  规格: {p.specs}")
         if len(products) > 5:
-            lines.append(f"  ...以及其他 {len(products) - 5} 件商品")
+            lines.append(f"\n  ...以及其他 {len(products) - 5} 件商品")
 
         return "\n".join(lines)

@@ -3,7 +3,7 @@ from src.agent.state import AgentState
 
 def route_after_security(state: AgentState) -> str:
     """安全审核后的路由：拦截内容直接返回，通过则进入意图识别。"""
-    if state.get("final_response"):
+    if state.get("_security_blocked", False):
         return "rejected"
     return "passed"
 
@@ -15,13 +15,19 @@ def route_after_intent(state: AgentState) -> str:
     intent = state.get("intent", "unknown")
     slots = state.get("slots") or {}
 
-    if intent in ("product_inquiry",):
-        # 有搜索关键词走 tool（search_products），否则走 RAG 知识库
-        if slots.get("product_name") or slots.get("keyword"):
-            return "tool"
+    if intent in ("product_inquiry", "after_sales", "unknown"):
+        # 商品知识 / 售后政策 / 未知意图都走 RAG 知识库（让 KB 兜底）
         return "rag"
-    if intent in ("order_query", "after_sales"):
+    if intent in ("order_query",):
         return "tool"
+    return "respond"
+
+
+def route_after_rag(state: AgentState) -> str:
+    """RAG 检索后的路由：after_sales 还需走 tool（退换货操作），其余直接生成回复。"""
+    intent = state.get("intent", "unknown")
+    if intent in ("after_sales",):
+        return "tool"  # 还需要执行具体的退换货/退款操作
     return "respond"
 
 

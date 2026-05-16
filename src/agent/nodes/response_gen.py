@@ -1,4 +1,6 @@
-from langchain_core.messages import HumanMessage, SystemMessage
+import re
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from src.agent.state import AgentState
@@ -7,6 +9,17 @@ from src.memory.buffer import ConversationMemory
 from src.utils.prompts import RAG_SYSTEM_PROMPT
 
 _memory = ConversationMemory(max_turns=10)
+
+# 匹配意图路由 JSON 模式（用于防御 LLM 意外输出 JSON）
+_INTENT_JSON_PATTERN = re.compile(
+    r'^\s*\{[\s\S]*?"intent"[\s\S]*?"slots"[\s\S]*?\}\s*',
+    re.MULTILINE,
+)
+
+
+def _strip_json(text: str) -> str:
+    """移除 LLM 可能意外输出的意图路由 JSON。"""
+    return _INTENT_JSON_PATTERN.sub("", text, count=1).strip()
 
 
 async def response_generation_node(state: AgentState) -> dict:
@@ -24,7 +37,6 @@ async def response_generation_node(state: AgentState) -> dict:
             reply = f"（未配置 LLM）收到：{user_message}"
 
         # 无 LLM 也保存记忆
-        from langchain_core.messages import AIMessage
         session_id = state.get("session_id") or "default"
         _memory.add_message(session_id, HumanMessage(content=user_message))
         _memory.add_message(session_id, AIMessage(content=reply))
@@ -35,6 +47,7 @@ async def response_generation_node(state: AgentState) -> dict:
         temperature=settings.LLM_MODEL_TEMPERATURE,
         api_key=settings.OPENAI_API_KEY,
         base_url=settings.OPENAI_BASE_URL,
+        streaming=True,  # 必须启用，否则 astream_events 无法捕获 on_chat_model_stream 事件
     )
 
     ctx_parts: list[str] = []
@@ -62,17 +75,24 @@ async def response_generation_node(state: AgentState) -> dict:
         + f"{extra}"
     )
 
-    response = await llm.ainvoke(
+    # 使用 astream 而非 ainvoke —— 这样 LangGraph 的 astream_events(v2)
+    # 才能捕获到 on_chat_model_stream 事件，WebSocket 端才能逐 token 推送。
+    full_response = ""
+    async for chunk in llm.astream(
         [
-            SystemMessage(content="你是专业电商客服助手。"),
+            SystemMessage(content="你是专业电商客服助手，请直接以自然语言回复用户，不要输出 JSON 或其他结构化数据。"),
             HumanMessage(content=prompt),
         ]
-    )
-    reply = str(response.content).strip()
+    ):
+        content = chunk.content if hasattr(chunk, "content") else str(chunk)
+        if content:
+            full_response += content
+
+    reply = _strip_json(full_response.strip())
 
     # 保存本轮对话到记忆缓冲
     session_id = state.get("session_id") or "default"
     _memory.add_message(session_id, HumanMessage(content=user_message))
-    _memory.add_message(session_id, response)
+    _memory.add_message(session_id, AIMessage(content=reply))
 
     return {"final_response": reply}

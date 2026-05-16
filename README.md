@@ -90,6 +90,34 @@ make test         # 运行测试
 make lint         # 代码检查（ruff）
 ```
 
+## Bug 修复记录
+
+### v0.1.1 (2026-05-16)
+
+**1. 中文知识库关键词匹配无效** — `src/agent/nodes/rag_node.py`
+
+原 `_tokenize()` 函数将中文按**单字**切分（如 "注册" → ["注", "册"]）。常见汉字几乎在每个文档中都能命中，导致 `_keyword_match` 得分无区分度，中文查询的回退匹配几乎随机。
+
+修复：改为 **bigram（二元组）** 切分（"注册账户" → ["注册", "册账", "账户"]），大幅提升中文关键词匹配精度。同时修复了 `_load_knowledge_docs` 中的相对路径问题（改为基于 `__file__` 的绝对路径），确保任意工作目录下都能正确加载知识文件。
+
+**2. 意图路由 JSON 泄漏到输出** — `src/api/routes/chat.py`, `src/agent/nodes/response_gen.py`
+
+两个根因：
+- WebSocket 流式过滤器 `if node is not None and node != "response_gen": continue` 在 `langgraph_node` 为 `None` 时放行（部分 LangGraph 版本 metadata 不完整），导致 intent_router 的 JSON token 混入流式输出
+- `MemorySaver` 持久化的 `final_response` 等字段在下一轮未被覆盖时产生状态泄漏
+
+修复：
+- 流式过滤改为 `if node != "response_gen": continue`（同时拦截 `None` 节点）
+- 每次调用 Agent 前显式重置 `final_response=""` 和 `_security_blocked=False`
+- 在 chat API 层和 response_gen 节点层添加正则清洗函数 `_strip_intent_json()`，防御性移除可能泄漏的 JSON 模式
+- response_gen 的 System Prompt 增加 "不要输出 JSON" 的明确约束
+
+### v0.1.0 (初始版)
+
+基础功能：意图识别 → RAG 检索 → 工具调用 → 回复生成的 LangGraph 流程。
+支持的意图类型：商品咨询 (product_inquiry)、订单查询 (order_query)、
+售后服务 (after_sales)、闲聊 (chitchat)、未知 (unknown)。
+
 ## 依赖
 
 - **后端**: FastAPI, LangChain, LangGraph, SQLAlchemy (async), Chroma, aiosqlite
